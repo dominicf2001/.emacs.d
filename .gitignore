@@ -2,5 +2,6 @@
 
 !.gitignore
 !config.org
-!plugins
+!plugins/
+!plugins/*
 !init.el

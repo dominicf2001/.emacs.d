@@ -1,0 +1,3 @@
+[submodule "plugins/notes-mode"]
+	path = plugins/notes-mode
+	url = git@github.com:dominicf2001/notes-mode.git
