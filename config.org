@@ -1,0 +1,456 @@
+* Text Editing
+** C++ style indenting
+#+BEGIN_SRC emacs-lisp
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-width 4)
+  (setq c-basic-offset 4)
+  (setq c-basic-indent 4)
+#+END_SRC
+** margin adjustments
+#+BEGIN_SRC emacs-lisp
+  (defun my-toggle-margins ()
+    "Set margins in current buffer."
+    (interactive)
+    (if (or (> left-margin-width 0) (> right-margin-width 0))
+	(progn
+	  (setq left-margin-width 0)
+	  (setq right-margin-width 0)
+	  (set-window-buffer (selected-window) (current-buffer)))
+      (setq left-margin-width 26)
+      (setq right-margin-width 26)
+      (set-window-buffer (selected-window) (current-buffer))))
+
+  (global-set-key [f5] 'my-toggle-margins)
+
+  (fringe-mode '(0 . 0))
+
+#+END_SRC
+** electric pair mode
+#+BEGIN_SRC emacs-lisp
+  (setq electric-pair-pairs '(
+			      (?\( .?\))
+			      (?\[ . ?\])
+			      (?\{ . ?\})
+			      ))
+  (electric-pair-mode t)
+#+END_SRC 
+** show matching parenthesis mode
+#+BEGIN_SRC emacs-lisp
+(add-hook 'after-init-hook 'show-paren-mode)
+#+END_SRC
+** subWord navigation
+#+BEGIN_SRC emacs-lisp
+(global-subword-mode 1)
+#+END_SRC
+** hungry delete mode
+#+BEGIN_SRC emacs-lisp
+  (use-package hungry-delete
+    :ensure t
+    :config (global-hungry-delete-mode))
+#+END_SRC
+* General Utilities
+** Line Management
+*** copy whole line function
+#+BEGIN_SRC emacs-lisp
+  (defun copy-whole-line ()
+    (interactive)
+    (save-excursion
+      (kill-new
+       (buffer-substring
+	(point-at-bol)
+	(point-at-eol))))) ;; saves initial point of cursor
+  (global-set-key (kbd "C-c l") 'copy-whole-line)
+#+END_SRC
+*** kill whole line function
+#+BEGIN_SRC emacs-lisp
+  (defun kill-whole-word ()
+    (interactive)
+    (backward-word)
+    (kill-word 1))
+
+  (global-set-key (kbd "C-c w") 'kill-whole-word)
+#+END_SRC
+** Buffer Management
+*** always kill current buffer
+#+BEGIN_SRC emacs-lisp
+  (defun kill-current-buffer ()
+    (interactive)
+    (kill-buffer (current-buffer)))
+
+  (global-set-key (kbd "C-x k") 'kill-current-buffer)
+#+END_SRC
+
+*** enabling ibuffer
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x b") 'ibuffer)
+#+END_SRC
+** config access shortcut
+#+BEGIN_SRC emacs-lisp
+;; (global-set-key(kbd "C-x e") (lambda (interactive) (find-file "~/.emacs.d/config.org")))
+#+END_SRC
+** disable system bell
+#+BEGIN_SRC emacs-lisp
+(setq ring-bell-function 'ignore)
+(setq visible-bell -1)
+#+END_SRC
+** simplify y-or-n prompt
+#+BEGIN_SRC emacs-lisp
+(defalias 'yes-or-no-p 'y-or-n-p)
+#+END_SRC
+** backup file prevention
+#+BEGIN_SRC emacs-lisp
+(setq make-backup-files nil)
+#+END_SRC
+** lockfile prevention
+#+BEGIN_SRC emacs-lisp
+  (setq create-lockfiles nil)
+#+END_SRC
+* User Interface Customization
+** Modeline Enhancements
+*** display lines and column numbers
+#+BEGIN_SRC emacs-lisp
+(line-number-mode 1)
+(column-number-mode 1)
+#+END_SRC
+*** mode diminishing
+#+BEGIN_SRC emacs-lisp
+  (use-package diminish
+    :ensure t
+    :init
+    (diminish 'hungry-delete-mode)
+    (diminish 'beacon-mode)
+    (diminish 'which-key-mode)
+    (diminish 'subword-mode))
+#+END_SRC
+*** spaceline configuration
+#+BEGIN_SRC emacs-lisp
+  (use-package spaceline
+    :ensure t
+    :config
+    (require 'spaceline-config)
+    (setq powerline-default-seperator (quote arrow))
+    (spaceline-spacemacs-theme))
+  
+#+END_SRC
+** theme
+#+BEGIN_SRC emacs-lisp
+  (use-package zenburn-theme
+    :ensure t
+    :config
+    (load-theme 'zenburn t))
+#+END_SRC
+** rainbow delimiters
+#+BEGIN_SRC emacs-lisp
+  (use-package rainbow-delimiters
+    :ensure t
+    :init
+    (add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+
+  (custom-set-faces
+    '(rainbow-delimiters-depth-3-face ((t (:foreground "orange")))))
+#+END_SRC
+** global highlight line mode
+#+BEGIN_SRC emacs-lisp
+(when window-system (global-hl-line-mode t))
+#+END_SRC
+** scroll enhancement
+#+BEGIN_SRC emacs-lisp
+(setq scroll-conservatively 100)
+#+END_SRC
+** prettify symbols mode
+#+BEGIN_SRC emacs-lisp
+(global-prettify-symbols-mode t)
+#+END_SRC
+** dashboard
+#+BEGIN_SRC emacs-lisp
+  (use-package dashboard
+    :ensure t
+    :config
+    (dashboard-setup-startup-hook)
+    (setq dashboard-items '((recents . 10))))
+#+END_SRC
+** gui cleanup
+#+BEGIN_SRC emacs-lisp
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+
+(setq inhibit-startup-message t)
+#+END_SRC
+* Navigation and Search
+** Window Management
+*** window splitting
+  :PROPERTIES:
+  :ORDERED:  t
+  :END:
+#+BEGIN_SRC emacs-lisp
+  (defun split-and-follow-horizontally ()
+    (interactive)
+    (split-window-below)
+    (balance-windows)
+    (other-window 1))
+  (global-set-key (kbd "C-x 2") 'split-and-follow-horizontally)
+
+
+  (defun split-and-follow-vertically ()
+    (interactive)
+    (split-window-right)
+    (balance-windows)
+    (other-window 1))
+  (global-set-key (kbd "C-x 3") 'split-and-follow-vertically)
+#+END_SRC
+*** switch-window
+#+BEGIN_SRC emacs-lisp
+  (use-package switch-window
+    :ensure t
+    :config
+    (setq switch-window-input-style 'minibuffer)
+    (setq switch-window-increase 4)
+    (setq switch-window-threshold 2)
+    (setq switch-window-shortcut-style 'qwerty)
+    (setq switch-window-qwerty-shortcuts
+	  '("a" "s" "d" "f" "w" "e" "r"))
+    :bind
+    ([remap other-window] . switch-window))
+#+END_SRC
+** IDO Mode
+*** IDO mode enablement
+#+BEGIN_SRC emacs-lisp
+  (setq ido-enable-flex-matching nil)
+  (setq ido-create-new-buffer 'always)
+  (setq ido-everywhere t)
+  (ido-mode 1)
+#+END_SRC
+*** IDO vertical mode
+#+BEGIN_SRC emacs-lisp
+  (use-package ido-vertical-mode
+    :ensure t
+    :init
+    (ido-vertical-mode 1))
+  (setq ido-vertical-define-keys 'C-n-and-C-p-only)
+#+END_SRC
+*** amx integration
+#+BEGIN_SRC emacs-lisp
+  (use-package amx
+    :ensure t
+    :init (amx-mode 1))
+
+  (use-package ido-completing-read+
+   :ensure t)
+#+END_SRC
+
+** buffer switching shortcut
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x C-b") 'ido-switch-buffer)
+#+END_SRC
+*** ignore dot files
+#+BEGIN_SRC emacs-lisp
+  (setq ido-toggle-ignore t)
+#+END_SRC
+** beacon mode
+#+BEGIN_SRC emacs-lisp
+(use-package beacon
+  :ensure t
+  :init
+  (beacon-mode 1))
+#+END_SRC
+** which key mode
+#+BEGIN_SRC emacs-lisp
+  (use-package which-key
+    :ensure t
+    :init
+    (which-key-mode)
+    :config
+    (which-key-mode))
+#+END_SRC
+* Org Mode
+** notes mode
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'load-path "~/.emacs.d/plugins/notes-mode")
+  (require 'notes-mode)
+  (setq notes-directory-path "~/Documents/notes/")
+#+END_SRC
+** basic config
+#+BEGIN_SRC emacs-lisp
+  (setq org-src-window-setup ' current-window)
+  (setq org-startup-folded t)
+#+END_SRC
+** org bullets mode
+#+BEGIN_SRC emacs-lisp
+  (use-package org-bullets
+    :ensure t
+    :config
+    (add-hook 'org-mode-hook (lambda () (org-bullets-mode))))
+#+END_SRC
+** source block shortcut
+#+BEGIN_SRC emacs-lisp
+  (defun insert-begin-src ()
+    (interactive)
+    (insert "#+BEGIN_SRC emacs-lisp\n\n#+END_SRC"))
+
+  (use-package org
+    :bind (:map org-mode-map
+                ("C-q" . insert-begin-src)))
+#+END_SRC
+** visual line mode
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'org-mode-hook '(lambda () (visual-line-mode 1)))
+#+END_SRC
+* Terminal
+** vterm mode
+#+BEGIN_SRC emacs-lisp
+  (use-package vterm
+      :ensure t
+      :pin melpa
+      :bind (:map vterm-mode-map ("C-y" . vterm-yank))
+      :config (setq vterm-max-scrollback 100000))
+
+  (global-set-key (kbd "s-<return>") 'vterm)
+#+END_SRC
+* Development
+** Language Modes
+*** typescript-mode
+#+BEGIN_SRC emacs-lisp
+  (use-package typescript-mode
+    :ensure t
+    :delight "ts"
+    :mode "\\.ts\\'" "\\.tsx\\'"
+    :hook ((typescript-mode . tide-setup)
+           (typescript-mode . flycheck-mode)
+           (typescript-mode . tide-hl-identifier-mode)
+           (typescript-mode . eldoc-mode)
+           (typescript-mode . company-mode)
+           (typescript-mode . smartparens-mode)
+           (typescript-mode . prettier-mode)))
+#+END_SRC
+*** go-mode
+#+BEGIN_SRC emacs-lisp
+  (use-package go-mode
+    :ensure t)
+
+  (defun lsp-go-install-save-hooks ()
+    (add-hook 'before-save-hook #'lsp-format-buffer t t)
+    (add-hook 'before-save-hook #'lsp-organize-imports t t))
+  (add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
+
+  (setq lsp-go-analyses '((shadow . t)
+                          (simplifycompositelit . :json-false)))
+  
+#+END_SRC
+*** geiser mode for scheme
+#+BEGIN_SRC emacs-lisp
+(use-package geiser-mit :ensure t)
+#+END_SRC
+** tree sitter syntax highlighting
+#+BEGIN_SRC emacs-lisp
+  (require 'tree-sitter)
+  (require 'tree-sitter-langs)
+  (global-tree-sitter-mode)
+  (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
+#+END_SRC
+** corfu autocompletion
+#+BEGIN_SRC emacs-lisp
+      (use-package corfu
+        :ensure t
+        ;; Optional customizations
+        ;; :custom
+        ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+        ;; (corfu-auto t)                 ;; Enable auto completion
+        ;; (corfu-separator ?\s)          ;; Orderless field separator
+        ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+        ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+        ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+        ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
+        ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+        ;; (corfu-scroll-margin 5)        ;; Use scroll margin
+
+        ;; Enable Corfu only for certain modes.
+        ;; :hook ((prog-mode . corfu-mode)
+        ;;        (shell-mode . corfu-mode)
+        ;;        (eshell-mode . corfu-mode))
+
+        ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
+        ;; be used globally (M-/).  See also the customization variable
+        ;; `global-corfu-modes' to exclude certain modes.
+        :init
+        (global-corfu-mode))
+
+      (setq corfu-auto t
+            corfu-auto-delay  0.4
+            corfu-auto-prefix 2
+            corfu-quit-no-match 'separator)
+
+      ;; A few more useful configurations...
+      (use-package emacs
+        :init
+        ;; TAB cycle if there are only few candidates
+        (setq completion-cycle-threshold 3)
+
+        ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+        ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+        ;; (setq read-extended-command-predicate
+        ;;       #'command-completion-default-include-p)
+
+        ;; Enable indentation+completion using the TAB key.
+        ;; `completion-at-point' is often bound to M-TAB.
+        (setq tab-always-indent 'complete))
+#+END_SRC
+** lsp mode
+*** basic config
+#+BEGIN_SRC emacs-lisp
+    (defun lsp-go-install-save-hooks ()
+      (add-hook 'before-save-hook #'lsp-format-buffer t t)
+      (add-hook 'before-save-hook #'lsp-organize-imports t t))
+
+    (use-package lsp-mode
+      :ensure t
+      :custom
+      (lsp-completion-provider :none) ;; we use Corfu!
+
+      :init
+      (defun my/lsp-mode-setup-completion ()
+        (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
+              '(flex)))  
+      (setq lsp-keymap-prefix "C-c l")
+
+      :hook (
+             (lsp-completion-mode . my/lsp-mode-setup-completion)
+             (js-mode . lsp)
+             (lsp-mode . lsp-enable-which-key-integration)
+             (typescript-mode . lsp)
+             (go-mode . lsp)
+             (python-mode . lsp))
+      :commands lsp)
+
+    (use-package lsp-ui
+      :ensure t
+      :commands lsp-ui-mode)
+
+    (use-package lsp-treemacs
+      :ensure t
+      :commands lsp-treemacs-errors-list)
+
+    (setq gc-cons-threshold 100000000)
+
+    (setq read-process-output-max (* 1024 1024)) ;; 1mb
+
+    ;; optionally if you want to use debugger
+    (use-package dap-mode
+      :ensure t)
+    ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+#+END_SRC
+*** lsp servers
+**** pyright
+#+BEGIN_SRC emacs-lisp
+  (use-package lsp-pyright
+    :ensure t
+    :hook (python-mode . (lambda ()
+                           (require 'lsp-pyright)
+                           (lsp))))
+#+END_SRC
+** flycheck syntax checking
+#+BEGIN_SRC emacs-lisp
+  (use-package flycheck
+    :ensure t
+    :init (global-flycheck-mode))
+#+END_SRC
