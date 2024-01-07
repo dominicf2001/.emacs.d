@@ -4,6 +4,9 @@
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
 
+;; start emacs server
+(server-start)
+
 (unless (package-installed-p 'use-package)
   (package-refresh-contents)
   (package-install 'use-package)
@@ -13,7 +16,8 @@
     (require 'use-package)))
 
 ;; Set font
-(set-face-attribute 'default nil :font "Iosvmata" :height 125)
+(set-face-attribute 'default nil :font "Iosvmata" :height 170)
+(setq default-frame-alist '((font . "Iosvmata")))
 
 ;; Set org babel's load file
 (org-babel-load-file "/home/dominic/.emacs.d/config.org")
