@@ -376,17 +376,6 @@
 #+BEGIN_SRC emacs-lisp
   (add-hook 'org-mode-hook '(lambda () (visual-line-mode 1)))
 #+END_SRC
-* Terminal
-** vterm mode
-#+BEGIN_SRC emacs-lisp
-  (use-package vterm
-      :ensure t
-      :pin melpa
-      :bind (:map vterm-mode-map ("C-y" . vterm-yank))
-      :config (setq vterm-max-scrollback 100000))
-
-  (global-set-key (kbd "s-<return>") 'vterm)
-#+END_SRC
 * Development
 ** Language Modes
 *** typescript-mode
