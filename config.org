@@ -48,7 +48,14 @@
     :ensure t
     :config (global-hungry-delete-mode))
 #+END_SRC
+
 * General Utilities
+** misc
+#+BEGIN_SRC emacs-lisp
+  (setq vc-follow-symlinks t)
+  (use-package ido-completing-read+
+    :ensure t)
+#+END_SRC
 ** optimization
 #+BEGIN_SRC emacs-lisp
   ;; Minimize garbage collection during startup
@@ -60,6 +67,14 @@
               (setq gc-cons-threshold (expt 2 23))))
 #+END_SRC
 ** Line Management
+*** line wrap preventation
+#+BEGIN_SRC emacs-lisp
+      (global-set-key (kbd "<mouse-6>") (lambda () (interactive)
+                                          (if truncate-lines (scroll-right 1))))
+      (global-set-key (kbd "<mouse-7>") (lambda () (interactive)
+                                          (if truncate-lines (scroll-left 1))))
+  (setq-default truncate-lines t)
+#+END_SRC
 *** copy whole line function
 #+BEGIN_SRC emacs-lisp
   (defun copy-whole-line ()
@@ -93,10 +108,6 @@
 *** enabling ibuffer
 #+BEGIN_SRC emacs-lisp
   (global-set-key (kbd "C-x b") 'ibuffer)
-#+END_SRC
-** config access shortcut
-#+BEGIN_SRC emacs-lisp
-;; (global-set-key(kbd "C-x e") (lambda (interactive) (find-file "~/.emacs.d/config.org")))
 #+END_SRC
 ** disable system bell
 #+BEGIN_SRC emacs-lisp
@@ -140,14 +151,38 @@
     (require 'spaceline-config)
     (setq powerline-default-seperator (quote arrow))
     (spaceline-spacemacs-theme))
-  
+
+#+END_SRC
+** font
+#+BEGIN_SRC emacs-lisp
+    (defun set-font-from-xresources ()
+      "Set the Emacs font from Xresources."
+      (let ((font-name (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 2 | awk '{$1=$1};1'"))
+            (pixel-size) (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 3 | cut -d '=' -f 2"))
+        (setq font-name (replace-regexp-in-string "\n\\'" "" font-name))
+        (when (and font-name (not (equal font-name "")))
+          (message font-name)
+          ;; Corrected line below
+          (set-face-attribute 'default t :font (concat font-name (concat "-" pixel-size))))))
+
+  ;; Call the function during Emacs startup
+  (set-font-from-xresources)
 #+END_SRC
 ** theme
 #+BEGIN_SRC emacs-lisp
-  (use-package zenburn-theme
-    :ensure t
-    :config
-    (load-theme 'zenburn t))
+  (defvar my/theme-loaded-for-graphical-frame nil
+    "Flag to indicate whether the theme has been loaded for a graphical frame.")
+
+  (defun my/load-theme-in-graphical-frame (frame)
+    (with-selected-frame frame
+      (when (and (display-graphic-p frame)
+                 (not my/theme-loaded-for-graphical-frame))
+        (load-theme 'xresources t)
+        (setq my/theme-loaded-for-graphical-frame t))))
+
+  (if (daemonp)
+      (add-hook 'after-make-frame-functions #'my/load-theme-in-graphical-frame)
+    (load-theme 'xresources t))
 #+END_SRC
 ** rainbow delimiters
 #+BEGIN_SRC emacs-lisp
@@ -158,6 +193,21 @@
 
   (custom-set-faces
     '(rainbow-delimiters-depth-3-face ((t (:foreground "orange")))))
+#+END_SRC
+** terminal mode customization
+#+BEGIN_SRC emacs-lisp
+  (defun on-after-init (frame)
+    (with-selected-frame frame
+      (if (not (display-graphic-p frame))
+          (progn
+            (set-frame-parameter frame 'alpha 80)
+            (set-face-background 'default "unspecified-bg" frame)))))
+
+    (add-hook 'after-make-frame-functions 'on-after-init)
+
+    ;; For the initial frame:
+    (when (and (not (daemonp)) (not (display-graphic-p)))
+      (on-after-init (selected-frame)))
 #+END_SRC
 ** global highlight line mode
 #+BEGIN_SRC emacs-lisp
@@ -171,14 +221,7 @@
 #+BEGIN_SRC emacs-lisp
 (global-prettify-symbols-mode t)
 #+END_SRC
-** dashboard
-#+BEGIN_SRC emacs-lisp
-  (use-package dashboard
-    :ensure t
-    :config
-    (dashboard-setup-startup-hook)
-    (setq dashboard-items '((recents . 10))))
-#+END_SRC
+
 ** gui cleanup
 #+BEGIN_SRC emacs-lisp
 (menu-bar-mode -1)
@@ -223,32 +266,59 @@
     :bind
     ([remap other-window] . switch-window))
 #+END_SRC
-** IDO Mode
-*** IDO mode enablement
+** Completion
+*** vertico
 #+BEGIN_SRC emacs-lisp
-  (setq ido-enable-flex-matching nil)
-  (setq ido-create-new-buffer 'always)
-  (setq ido-everywhere t)
-  (ido-mode 1)
-#+END_SRC
-*** IDO vertical mode
-#+BEGIN_SRC emacs-lisp
-  (use-package ido-vertical-mode
+  (use-package vertico
     :ensure t
     :init
-    (ido-vertical-mode 1))
-  (setq ido-vertical-define-keys 'C-n-and-C-p-only)
+    (vertico-mode))
+
+  (use-package vertico-directory
+    :load-path "~/.emacs.d/plugins/vertico-directory.el"
+    :bind (:map vertico-map
+                ("RET" . vertico-directory-enter)
+                ("DEL" . vertico-directory-delete-char)
+                ("M-DEL" . vertico-directory-delete-word))
+    :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
+  (use-package emacs
+    :ensure t
+    :init
+    ;; Add prompt indicator to `completing-read-multiple'.
+    ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+    (defun crm-indicator (args)
+      (cons (format "[CRM%s] %s"
+                    (replace-regexp-in-string
+                     "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                     crm-separator)
+                    (car args))
+            (cdr args)))
+    (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+    ;; Do not allow the cursor in the minibuffer prompt
+    (setq minibuffer-prompt-properties
+          '(read-only t cursor-intangible t face minibuffer-prompt))
+    (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+    ;; Enable recursive minibuffers
+    (setq enable-recursive-minibuffers t))
 #+END_SRC
-*** amx integration
+
 #+BEGIN_SRC emacs-lisp
   (use-package amx
     :ensure t
     :init (amx-mode 1))
-
-  (use-package ido-completing-read+
-   :ensure t)
 #+END_SRC
-
+*** marginalia
+#+BEGIN_SRC emacs-lisp
+  (use-package marginalia
+    :ensure t
+    :bind (:map minibuffer-local-map
+                ("M-A" . marginalia-cycle))
+    :init
+    (marginalia-mode))
+#+END_SRC
 ** buffer switching shortcut
 #+BEGIN_SRC emacs-lisp
   (global-set-key (kbd "C-x C-b") 'ido-switch-buffer)
@@ -256,13 +326,6 @@
 *** ignore dot files
 #+BEGIN_SRC emacs-lisp
   (setq ido-toggle-ignore t)
-#+END_SRC
-** beacon mode
-#+BEGIN_SRC emacs-lisp
-(use-package beacon
-  :ensure t
-  :init
-  (beacon-mode 1))
 #+END_SRC
 ** which key mode
 #+BEGIN_SRC emacs-lisp
@@ -272,6 +335,13 @@
     (which-key-mode)
     :config
     (which-key-mode))
+#+END_SRC
+** config shortcut
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-s-c") 
+                  (lambda () 
+                    (interactive)
+                    (find-file "~/.emacs.d/config.org")))
 #+END_SRC
 * Org Mode
 ** notes mode
@@ -296,8 +366,8 @@
 #+BEGIN_SRC emacs-lisp
   (defun insert-begin-src ()
     (interactive)
-    (insert "#+BEGIN_SRC emacs-lisp\n\n#+END_SRC"))
-
+    (insert "#+BEGIN_SRC emacs-lisp\n\n#+END_SRC")
+    (previous-line))
   (use-package org
     :bind (:map org-mode-map
                 ("C-q" . insert-begin-src)))
@@ -367,45 +437,23 @@
 #+BEGIN_SRC emacs-lisp
   (use-package corfu
     :ensure t
-    ;; Optional customizations
     :custom
-    ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-    (corfu-auto t)                 ;; Enable auto completion
-    ;; (corfu-separator ?\s)          ;; Orderless field separator
-    ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+    (corfu-cycle t)
+    (corfu-auto t)
     (completion-styles '(basic))
-    (corfu-auto-delay 0.2)
+    (corfu-auto-delay 0.1)
     (corfu-auto-prefix 1)
 
-    ;; (corfu-preview-current nil)    ;; Disable current candidate preview
-    ;; (corfu-preselect 'prompt)      ;; Preselect the prompt
-    ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
-    ;; (corfu-scroll-margin 5)        ;; Use scroll margin
-
-    ;; Enable Corfu only for certain modes.
-    ;; :hook ((prog-mode . corfu-mode)
-    ;;        (shell-mode . corfu-mode)
-    ;;        (eshell-mode . corfu-mode))
-
-    ;; Recommended: Enable Corfu globally.  This is recommended since Dabbrev can
-    ;; be used globally (M-/).  See also the customization variable
-    ;; `global-corfu-modes' to exclude certain modes.
     :init
     (global-corfu-mode))
 
-  ;; A few more useful configurations...
+  (use-package nerd-icons-corfu
+    :ensure t)
+
   (use-package emacs
     :init
     ;; TAB cycle if there are only few candidates
     (setq completion-cycle-threshold 3)
-
-    ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
-    ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
-    ;; (setq read-extended-command-predicate
-    ;;       #'command-completion-default-include-p)
-
-    ;; Enable indentation+completion using the TAB key.
-    ;; `completion-at-point' is often bound to M-TAB.
     (setq tab-always-indent 'complete))
 #+END_SRC
 ** lsp mode
@@ -463,9 +511,12 @@
 #+BEGIN_SRC emacs-lisp
   (use-package flycheck
     :ensure t
-    :init (global-flycheck-mode))
+    :init (global-flycheck-mode)
+    :config
+    ;; disable minibuffer errors
+    (setq flycheck-display-errors-function (lambda (errors) nil)))
 #+END_SRC
 
-#+BEGIN_SRC emacs-lisp
-  (native-comp-available-p)
-#+END_SRC
+
+(message "%s" after-make-frame-functions)
+
