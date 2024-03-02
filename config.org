@@ -1,4 +1,34 @@
 * Text Editing
+** Line Management
+*** line wrap
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "<mouse-6>") (lambda () (interactive)
+                                      (if truncate-lines (scroll-right 1))))
+  (global-set-key (kbd "<mouse-7>") (lambda () (interactive)
+                                      (if truncate-lines (scroll-left 1))))
+  (setq-default truncate-lines t)
+  (add-hook 'text-mode-hook 'visual-line-mode)  
+#+END_SRC
+*** copy whole line function
+#+BEGIN_SRC emacs-lisp
+  (defun copy-whole-line ()
+    (interactive)
+    (save-excursion
+      (kill-new
+       (buffer-substring
+	(point-at-bol)
+	(point-at-eol))))) ;; saves initial point of cursor
+  (global-set-key (kbd "C-c l") 'copy-whole-line)
+#+END_SRC
+*** kill whole line function
+#+BEGIN_SRC emacs-lisp
+  (defun kill-whole-word ()
+    (interactive)
+    (backward-word)
+    (kill-word 1))
+
+  (global-set-key (kbd "C-c w") 'kill-whole-word)
+#+END_SRC
 ** C++ style indenting
 #+BEGIN_SRC emacs-lisp
   (setq-default indent-tabs-mode nil)
@@ -8,22 +38,17 @@
 #+END_SRC
 ** margin adjustments
 #+BEGIN_SRC emacs-lisp
-  (defun my-toggle-margins ()
-    "Set margins in current buffer."
-    (interactive)
-    (if (or (> left-margin-width 0) (> right-margin-width 0))
-	(progn
-	  (setq left-margin-width 0)
-	  (setq right-margin-width 0)
-	  (set-window-buffer (selected-window) (current-buffer)))
-      (setq left-margin-width 26)
-      (setq right-margin-width 26)
-      (set-window-buffer (selected-window) (current-buffer))))
+  (defun my-set-margins ()
+    "Set margins in current buffer, but not for html-mode."
 
-  (global-set-key [f5] 'my-toggle-margins)
+    (defvar excluded-modes '(html-mode mhtml-mode)
+      "Modes to exclude from my-set-margins.")
+  
+    (unless (member major-mode excluded-modes)
+      (setq left-margin-width 18)
+      (setq right-margin-width 18)))
 
-  (fringe-mode '(0 . 0))
-
+  (add-hook 'text-mode-hook 'my-set-margins)
 #+END_SRC
 ** electric pair mode
 #+BEGIN_SRC emacs-lisp
@@ -48,7 +73,6 @@
     :ensure t
     :config (global-hungry-delete-mode))
 #+END_SRC
-
 * General Utilities
 ** misc
 #+BEGIN_SRC emacs-lisp
@@ -65,35 +89,6 @@
   (add-hook 'emacs-startup-hook
             (lambda ()
               (setq gc-cons-threshold (expt 2 23))))
-#+END_SRC
-** Line Management
-*** line wrap preventation
-#+BEGIN_SRC emacs-lisp
-      (global-set-key (kbd "<mouse-6>") (lambda () (interactive)
-                                          (if truncate-lines (scroll-right 1))))
-      (global-set-key (kbd "<mouse-7>") (lambda () (interactive)
-                                          (if truncate-lines (scroll-left 1))))
-  (setq-default truncate-lines t)
-#+END_SRC
-*** copy whole line function
-#+BEGIN_SRC emacs-lisp
-  (defun copy-whole-line ()
-    (interactive)
-    (save-excursion
-      (kill-new
-       (buffer-substring
-	(point-at-bol)
-	(point-at-eol))))) ;; saves initial point of cursor
-  (global-set-key (kbd "C-c l") 'copy-whole-line)
-#+END_SRC
-*** kill whole line function
-#+BEGIN_SRC emacs-lisp
-  (defun kill-whole-word ()
-    (interactive)
-    (backward-word)
-    (kill-word 1))
-
-  (global-set-key (kbd "C-c w") 'kill-whole-word)
 #+END_SRC
 ** Buffer Management
 *** always kill current buffer
@@ -155,15 +150,15 @@
 #+END_SRC
 ** font
 #+BEGIN_SRC emacs-lisp
-    (defun set-font-from-xresources ()
-      "Set the Emacs font from Xresources."
-      (let ((font-name (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 2 | awk '{$1=$1};1'"))
-            (pixel-size) (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 3 | cut -d '=' -f 2"))
-        (setq font-name (replace-regexp-in-string "\n\\'" "" font-name))
-        (when (and font-name (not (equal font-name "")))
-          (message font-name)
-          ;; Corrected line below
-          (set-face-attribute 'default t :font (concat font-name (concat "-" pixel-size))))))
+  (defun set-font-from-xresources ()
+    "Set the Emacs font from Xresources."
+    (let ((font-name (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 2 | awk '{$1=$1};1'"))
+          (pixel-size) (shell-command-to-string "xrdb -query | grep '*.font' | cut -d ':' -f 3 | cut -d '=' -f 2"))
+      (setq font-name (replace-regexp-in-string "\n\\'" "" font-name))
+      (when (and font-name (not (equal font-name "")))
+        (set-face-attribute 'default t :font (concat font-name (concat "-" pixel-size)))
+        (set-face-attribute 'fixed-pitch nil :family font-name)
+        (set-face-attribute 'variable-pitch nil :family font-name))))
 
   ;; Call the function during Emacs startup
   (set-font-from-xresources)
@@ -401,9 +396,10 @@
     (add-hook 'before-save-hook #'lsp-organize-imports t t))
   (add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
 
+  (setq lsp-gopls-use-placeholders nil)
+
   (setq lsp-go-analyses '((shadow . t)
                           (simplifycompositelit . :json-false)))
-  
 #+END_SRC
 *** geiser mode for scheme
 #+BEGIN_SRC emacs-lisp
@@ -412,8 +408,7 @@
 ** tree sitter syntax highlighting
 #+BEGIN_SRC emacs-lisp
   (use-package tree-sitter
-    :ensure t
-    )
+    :ensure t)
 
   (use-package tree-sitter-langs
     :ensure t)
@@ -429,8 +424,8 @@
     (corfu-cycle t)
     (corfu-auto t)
     (completion-styles '(basic))
-    (corfu-auto-delay 0.1)
-    (corfu-auto-prefix 1)
+    (corfu-auto-delay 0.3)
+    (corfu-auto-prefix 2)
 
     :init
     (global-corfu-mode))
@@ -447,44 +442,47 @@
 ** lsp mode
 *** basic config
 #+BEGIN_SRC emacs-lisp
-  (defun lsp-go-install-save-hooks ()
-    (add-hook 'before-save-hook #'lsp-format-buffer t t)
-    (add-hook 'before-save-hook #'lsp-organize-imports t t))
+      (defun lsp-go-install-save-hooks ()
+        (add-hook 'before-save-hook #'lsp-format-buffer t t)
+        (add-hook 'before-save-hook #'lsp-organize-imports t t))
 
-  (use-package lsp-mode
-    :ensure t
-    :custom
-    (lsp-completion-provider :none) ;; we use Corfu!
+      (use-package lsp-mode
+        :ensure t
+        :custom
+        (lsp-completion-provider :none) ;; we use Corfu!
 
-    :init
-    (defun my/lsp-mode-setup-completion ()
-      (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
-            '(flex)))  
-    (setq lsp-keymap-prefix "C-c l")
+        :init
+        (defun my/lsp-mode-setup-completion ()
+          (setf (alist-get 'styles (alist-get 'lsp-capf completion-category-defaults))
+                '(flex)))  
+        (setq lsp-keymap-prefix "C-c l")
 
-    :hook (
-           (lsp-completion-mode . my/lsp-mode-setup-completion)
-           (js-mode . lsp)
-           (lsp-mode . lsp-enable-which-key-integration)
-           (typescript-mode . lsp)
-           (go-mode . lsp)
-           (python-mode . lsp))
-    :commands lsp)
+        :hook (
+               (lsp-completion-mode . my/lsp-mode-setup-completion)
+               (js-mode . lsp)
+               (lsp-mode . lsp-enable-which-key-integration)
+               (typescript-mode . lsp)
+               (go-mode . lsp)
+               (python-mode . lsp)
+               (c-mode . lsp)
+               (html-mode . lsp)
+               (c++-mode . lsp))
+        :commands lsp)
 
-  (use-package lsp-ui
-    :ensure t
-    :commands lsp-ui-mode)
+      (use-package lsp-ui
+        :ensure t
+        :commands lsp-ui-mode)
 
-  (use-package lsp-treemacs
-    :ensure t
-    :commands lsp-treemacs-errors-list)
+      (use-package lsp-treemacs
+        :ensure t
+        :commands lsp-treemacs-errors-list)
 
-  (setq read-process-output-max (* 1024 1024)) ;; 1mb
+      (setq read-process-output-max (* 1024 1024)) ;; 1mb
 
-  ;; optionally if you want to use debugger
-  (use-package dap-mode
-    :ensure t)
-  ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
+      ;; optionally if you want to use debugger
+      (use-package dap-mode
+        :ensure t)
+      ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 #+END_SRC
 *** lsp servers
 **** pyright

@@ -18,7 +18,7 @@
 ;; Set org babel's load file
 (org-babel-load-file "/home/dominic/.emacs.d/config.org")
 
-;; Load nerd icons (MAY REMOVE)
+;; Load nerd icons
 (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter)
 
 ;; ---------------
@@ -38,5 +38,7 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(font-lock-string-face ((t (:foreground "medium sea green"))))
  '(highlight ((t (:background "gray18"))))
- '(rainbow-delimiters-depth-3-face ((t (:foreground "orange")))))
+ '(rainbow-delimiters-depth-3-face ((t (:foreground "orange"))))
+ '(region ((t (:extend t :background "gray18")))))
